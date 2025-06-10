@@ -1,4 +1,5 @@
 # popv_validator/validator.py
+
 import time
 import json
 import redis
@@ -16,19 +17,19 @@ ECDSA_SERVICE_URL = os.getenv("ECDSA_SERVICE_URL")
 SZS_STARK_SERVICE_URL = os.getenv("SZS_STARK_SERVICE_URL")
 
 blockchain = []
-r = None
+r = None # Inicializamos r como global None aquí
 
 def connect_to_redis():
-    global r
+    global r # Declara que vamos a modificar la variable global r
     try:
         r_temp = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True, socket_connect_timeout=1)
         r_temp.ping()
-        r = r_temp
+        r = r_temp # Asigna a la variable global
         print("Validator: Conectado a Redis con éxito.")
         return True
     except redis.exceptions.ConnectionError as e:
         print(f"Validator: Error al conectar a Redis en {REDIS_HOST}:{REDIS_PORT}: {e}")
-        r = None
+        r = None # Asegurarse de que sea None si la conexión falla
         return False
 
 connect_to_redis() # Intentar conectar al inicio
@@ -36,14 +37,16 @@ connect_to_redis() # Intentar conectar al inicio
 stop_event = Event()
 
 def validate_and_process_transactions():
-    global blockchain
+    global r # ¡Añade esta línea! Declara que vamos a usar y posiblemente modificar la variable global r
     print("Validator: Iniciando procesador de transacciones...")
     while not stop_event.is_set():
-        if not r and not connect_to_redis(): # Reintentar conexión a Redis
-            time.sleep(1)
-            continue
+        if r is None: # Comprueba si r es None
+            if not connect_to_redis(): # Si r es None, intenta conectar
+                time.sleep(1) # Espera un poco antes de reintentar si la conexión falla
+                continue # Vuelve al inicio del bucle
 
         try:
+            # Ahora que r debería estar conectado, intentamos usarlo
             item = r.blpop('pending_transactions', timeout=5)
             if item:
                 queue_name, transaction_json = item
@@ -53,6 +56,7 @@ def validate_and_process_transactions():
                 is_valid = True # Asume válido hasta que se demuestre lo contrario
 
                 # 1. Verificar firma ECDSA
+                # ... (resto de tu lógica de validación) ...
                 if transaction.get('signed_data') and transaction.get('original_data') and transaction.get('public_key'):
                     try:
                         verify_response = requests.post(
@@ -99,7 +103,6 @@ def validate_and_process_transactions():
                     print("Validator: No hay prueba STARK para verificar.")
 
                 # 3. Aplicar lógica de consenso PoPV (EJEMPLO SIMPLE: solo acepta números pares)
-                # Aquí es donde implementarías tu lógica específica de PoPV
                 print(f"Validator: Aplicando lógica PoPV para '{transaction.get('original_data')}'...")
                 if transaction.get('original_data') and isinstance(transaction['original_data'], str) and transaction['original_data'].isdigit():
                     if int(transaction['original_data']) % 2 != 0:

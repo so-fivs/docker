@@ -1,85 +1,107 @@
 version: '3.8'
 
-networks:
-  my_batman_macvlan_net:
-    external: true
+# 1. Eliminamos la sección 'networks' porque usaremos la red 'bridge' por defecto de Docker Compose.
+#    Docker Compose creará automáticamente una red bridge interna para todos los servicios
+#    definidos aquí, permitiendo que se comuniquen por sus nombres de servicio.
+# networks:
+#   batman_mesh_network:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 172.20.0.0/16
 
 services:
   nginx:
-    # Change the build context to the root of your project
     build:
-      context:. # This makes the root directory (~/blockchain_batman/) the build context
-      dockerfile:./nginx/Dockerfile # Specify the Dockerfile path relative to the new context
+      context: .
+      dockerfile: ./nginx/Dockerfile
     ports:
-      - "80:80"
+      - "80:80" # Expone el puerto 80 del host al puerto 80 del contenedor Nginx
     depends_on:
-      - flask
-    networks:
-      - default
+      - flask # Nginx depende de Flask para iniciar
+    # 2. Eliminamos la referencia a la red personalizada.
+    #    Por defecto, Docker Compose los conectará a la red 'default' que crea para este stack.
+    # networks:
+    #   - batman_mesh_network
+    volumes:
+      - ./flask/static:/app/static:ro
     restart: always
 
   flask:
-    build:./flask
-    cap_add:
-      - NET_ADMIN # Permiso específico para operaciones de red
-    networks:
-      my_batman_macvlan_net:
-        ipv4_address: 10.0.0.10
+    build: ./flask
+    # 3. cap_add: NET_ADMIN no es necesario para aplicaciones normales.
+    #    Solo si el CONTENEDOR Flask necesitara manipular directamente las interfaces de red a bajo nivel
+    #    (ej. ejecutar comandos de red como ip o batctl dentro del contenedor), lo cual no es el caso en este modelo.
+    # cap_add:
+    #   - NET_ADMIN
+    # 4. Eliminamos la red personalizada y la IP fija.
+    #    Docker Compose asignará una IP automáticamente en la red 'default' que creará.
+    # networks:
+    #   batman_mesh_network:
+    #     ipv4_address: 172.20.0.10
     environment:
-      ECDSA_SERVICE_URL: http://10.0.0.11:5001
-      REDIS_HOST: 10.0.0.12
+      # Las URLs están CORRECTAS: Usan los NOMBRES DE SERVICIO, que Docker Compose resuelve automáticamente.
+      ECDSA_SERVICE_URL: http://ecdsa:5001
+      REDIS_HOST: redis
       REDIS_PORT: 6379
-      SZS_STARK_SERVICE_URL: http://10.0.0.13:5002
-      VALIDATOR_SERVICE_URL: http://10.0.0.14:5003
+      SZS_STARK_SERVICE_URL: http://szsstark:5002
+      VALIDATOR_SERVICE_URL: http://popv_validator:5003
     volumes:
-      -./flask/templates:/app/templates:ro
-      -./flask/static:/app/static:ro
+      - ./flask/templates:/app/templates:ro
+      - ./flask/static:/app/static:ro
     restart: always
 
   ecdsa:
-    build:./ecdsa
-    cap_add:
-      - NET_ADMIN # Permiso específico para operaciones de red
-    networks:
-      my_batman_macvlan_net:
-        ipv4_address: 10.0.0.11
+    build: ./ecdsa
+    # 5. cap_add: NET_ADMIN (misma razón que en Flask)
+    # cap_add:
+    #   - NET_ADMIN
+    # 6. Eliminamos la red personalizada y la IP fija.
+    # networks:
+    #   batman_mesh_network:
+    #     ipv4_address: 172.20.0.11
     environment:
       SERVICE_PORT: 5001
     restart: always
 
   redis:
     image: redis:latest
-    networks:
-      my_batman_macvlan_net:
-        ipv4_address: 10.0.0.12
+    # 7. Eliminamos la red personalizada y la IP fija.
+    # networks:
+    #   batman_mesh_network:
+    #     ipv4_address: 172.20.0.12
     restart: always
     volumes:
       - redis_data:/data
 
   szsstark:
-    build:./szsstark
-    cap_add:
-      - NET_ADMIN # Permiso específico para operaciones de red
-    networks:
-      my_batman_macvlan_net:
-        ipv4_address: 10.0.0.13
+    build: ./szsstark
+    # 8. cap_add: NET_ADMIN (misma razón)
+    # cap_add:
+    #   - NET_ADMIN
+    # 9. Eliminamos la red personalizada y la IP fija.
+    # networks:
+    #   batman_mesh_network:
+    #     ipv4_address: 172.20.0.13
     environment:
       SERVICE_PORT: 5002
     restart: always
 
   popv_validator:
-    build:./popv_validator
-    cap_add:
-      - NET_ADMIN # Permiso específico para operaciones de red
-    networks:
-      my_batman_macvlan_net:
-        ipv4_address: 10.0.0.14
+    build: ./popv_validator
+    # 10. cap_add: NET_ADMIN (misma razón)
+    # cap_add:
+    #   - NET_ADMIN
+    # 11. Eliminamos la red personalizada y la IP fija.
+    # networks:
+    #   batman_mesh_network:
+    #     ipv4_address: 172.20.0.14
     environment:
       SERVICE_PORT: 5003
-      REDIS_HOST: 10.0.0.12
+      REDIS_HOST: redis
       REDIS_PORT: 6379
-      ECDSA_SERVICE_URL: http://10.0.0.11:5001
-      SZS_STARK_SERVICE_URL: http://10.0.0.13:5002
+      ECDSA_SERVICE_URL: http://ecdsa:5001
+      SZS_STARK_SERVICE_URL: http://szsstark:5002
     restart: always
 
 volumes:

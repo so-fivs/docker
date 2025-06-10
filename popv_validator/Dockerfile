@@ -11,12 +11,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 5003
 
+# ... (otras instrucciones del Dockerfile)
+
+# CMD para configurar BATMAN y luego iniciar el servicio PoPV Validator
+
 CMD ["/bin/bash", "-c", " \
-    echo 'Configurando interfaz BATMAN (bat0) en PoPV Validator...' && \
-    ip link add name bat0 type dummy && \
-    ip link set dev bat0 up && \
-    batctl if add bat0 && \
-    echo 'BATMAN en PoPV Validator configurado. Iniciando servicio...' && \
-    sleep 3 && \
+    echo 'Iniciando servicio PoPV Validator...' && \
     /usr/local/bin/python3 validator.py \
 "]

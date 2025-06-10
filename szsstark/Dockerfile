@@ -11,12 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 5002
 
+# ... (otras instrucciones del Dockerfile)
+
+# CMD para configurar BATMAN y luego iniciar la aplicación SZS-STARK
 CMD ["/bin/bash", "-c", " \
-    echo 'Configurando interfaz BATMAN (bat0) en SZS-STARK...' && \
-    ip link add name bat0 type dummy && \
-    ip link set dev bat0 up && \
-    batctl if add bat0 && \
-    echo 'BATMAN en SZS-STARK configurado. Iniciando servicio...' && \
-    sleep 3 && \
-    /usr/local/bin/python3 szsstark_service.py \
+    echo 'Iniciando servicio SZS-STARK...' && \
+    /usr/local/bin/python3 szstark_service.py \
 "]

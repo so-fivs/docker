@@ -13,16 +13,15 @@ RUN apt-get update && \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Dentro de flask/Dockerfile, después de COPY . .
 COPY . .
+# Dentro de flask/Dockerfile, después de COPY . .
+RUN apt-get update && apt-get install -y iproute2 batctl && rm -rf /var/lib/apt/lists/*
 EXPOSE 5000
 
+
 # CMD para configurar BATMAN y luego iniciar la aplicación
-CMD ["/bin/bash", "-c", " \
-    echo 'Configurando interfaz BATMAN (bat0) en Flask...' && \
-    ip link add name bat0 type dummy && \
-    ip link set dev bat0 up && \
-    batctl if add bat0 && \
-    echo 'BATMAN en Flask configurado. Iniciando aplicación...' && \
-    sleep 3 && \
-    /usr/local/bin/gunicorn --bind 0.0.0.0:5000 app:app \
-"]
+# ... (otras instrucciones del Dockerfile)
+
+# CMD para configurar BATMAN y luego iniciar la aplicación Flask
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]

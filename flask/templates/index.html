@@ -9,56 +9,80 @@
 <body>
     <h1>Blockchain BATMAN Mesh Network Simulation</h1>
 
-    <section>
-        <h2>Send New Transaction</h2>
-        <form id="transactionForm">
-            <textarea id="transactionData" placeholder="Enter transaction data (e.g., sender, receiver, amount: 10). Try an odd number to see PoPV fail!"></textarea><br>
-            <button type="submit">Send Transaction</button>
-        </form>
-        <div id="transactionStatus"></div>
-    </section>
+    <div class="container"> <section>
+            <h2>Send New Transaction</h2>
+            <form id="transactionForm">
+                <textarea id="transactionData" placeholder="Enter transaction data (e.g., sender, receiver, amount: 10). Try an odd number to see PoPV fail!"></textarea><br>
+                <button type="submit">Send Transaction</button>
+            </form>
+            <div id="transactionStatus" class="message"></div> </section>
+    </div>
 
-    <section>
-        <h2>Network Status (BATMAN Originators - Local Node)</h2>
-        <pre id="batmanOriginatorsLocal">Loading...</pre>
-        <h2>Network Status (BATMAN Neighbors - Local Node)</h2>
-        <pre id="batmanNeighborsLocal">Loading...</pre>
-        <button onclick="getNetworkStatus()">Refresh Status</button>
-    </section>
+    <div class="container">
+        <section>
+            <h2>Network Status (BATMAN Originators - Local Node)</h2>
+            <pre id="batmanOriginatorsLocal">Loading...</pre>
+            <h2>Network Status (BATMAN Neighbors - Local Node)</h2>
+            <pre id="batmanNeighborsLocal">Loading...</pre>
+            <button onclick="getNetworkStatus()">Refresh Status</button>
+        </section>
+    </div>
 
-    <section>
-        <h2>Inter-Node Communication Status</h2>
-        <div id="nodeCommunicationStatus">Loading...</div>
-    </section>
+    <div class="container">
+        <section>
+            <h2>Inter-Node Communication Status</h2>
+            <div id="nodeCommunicationStatus">Loading...</div>
+        </section>
+    </div>
 
-    <section>
-        <h2>Redis Pending Transactions</h2>
-        <div id="redisPending">Loading...</div>
-    </section>
+    <div class="container">
+        <section>
+            <h2>Redis Pending Transactions</h2>
+            <div id="redisPending">Loading...</div>
+        </section>
+    </div>
 
-    <section>
-        <h2>Blockchain Status (from Validator)</h2>
-        <pre id="blockchainStatus">Loading...</pre>
-    </section>
+    <div class="container">
+        <section>
+            <h2>Blockchain Status (from Validator)</h2>
+            <pre id="blockchainStatus">Loading...</pre>
+        </section>
+    </div>
 
     <script>
+        // Función para enviar una transacción
         document.getElementById('transactionForm').addEventListener('submit', async (event) => {
             event.preventDefault();
             const transactionData = document.getElementById('transactionData').value;
-            document.getElementById('transactionStatus').innerText = "Sending transaction...";
+            const transactionStatusDiv = document.getElementById('transactionStatus');
+            transactionStatusDiv.className = 'message'; // Resetear clases
+            transactionStatusDiv.innerText = "Sending transaction...";
+
             try {
+                // Aquí se hace la petición al backend de Flask a la ruta /send_transaction
                 const response = await fetch('/send_transaction', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ transaction_data: transactionData })
                 });
+
                 const result = await response.json();
-                document.getElementById('transactionStatus').innerText = JSON.stringify(result, null, 2);
+                if (response.ok) {
+                    transactionStatusDiv.className = 'message success';
+                    transactionStatusDiv.innerText = `Transaction sent successfully! Response: ${JSON.stringify(result, null, 2)}`;
+                } else {
+                    transactionStatusDiv.className = 'message error';
+                    transactionStatusDiv.innerText = `Error sending transaction: ${result.error || response.statusText}`;
+                }
+                // Opcional: Actualizar el estado de la blockchain después de enviar la transacción
+                getNetworkStatus(); 
             } catch (error) {
-                document.getElementById('transactionStatus').innerText = Error sending transaction: ${error};
+                transactionStatusDiv.className = 'message error';
+                transactionStatusDiv.innerText = `Error sending transaction: ${error.message || error}`;
             }
         });
 
+        // Función para obtener y mostrar el estado de la red, Redis y la Blockchain
         async function getNetworkStatus() {
             try {
                 const response = await fetch('/network_status');
@@ -68,23 +92,30 @@
                 document.getElementById('batmanNeighborsLocal').innerText = data.batman_neighbors_local || data.batman_neighbors_local_error || 'No data';
 
                 let nodeCommHtml = '<ul>';
-                for (const [node, status] of Object.entries(data.node_communication_status)) {
-                    nodeCommHtml += <li><strong>${node}:</strong> ${status}</li>;
+                if (data.node_communication_status) {
+                    for (const [node, status] of Object.entries(data.node_communication_status)) {
+                        nodeCommHtml += `<li><strong>${node}:</strong> ${status}</li>`;
+                    }
+                } else {
+                    nodeCommHtml += `<li>${data.node_communication_status_error || 'No data'}</li>`;
                 }
                 nodeCommHtml += '</ul>';
                 document.getElementById('nodeCommunicationStatus').innerHTML = nodeCommHtml;
 
-                document.getElementById('redisPending').innerText = data.redis_pending_transactions !== undefined ? Pending Transactions in Redis: ${data.redis_pending_transactions} : (data.redis_pending_transactions_error || 'N/A');
+                document.getElementById('redisPending').innerText = data.redis_pending_transactions !== undefined ? `Pending Transactions in Redis: ${data.redis_pending_transactions}` : (data.redis_pending_transactions_error || 'N/A');
 
                 document.getElementById('blockchainStatus').innerText = data.blockchain_status_from_validator ? JSON.stringify(data.blockchain_status_from_validator, null, 2) : (data.blockchain_status_from_validator_error || 'N/A');
             } catch (error) {
                 console.error("Error fetching network status:", error);
-                document.getElementById('nodeCommunicationStatus').innerText = "Error fetching status.";
+                document.getElementById('nodeCommunicationStatus').innerText = `Error fetching status: ${error.message || error}`;
             }
         }
 
-        getNetworkStatus();
-        setInterval(getNetworkStatus, 5000); // Actualizar cada 5 segundos
+        // Llamar a getNetworkStatus() al cargar la página para mostrar datos iniciales
+        document.addEventListener('DOMContentLoaded', getNetworkStatus);
+
+        // Actualizar el estado cada cierto tiempo (ej: cada 5 segundos)
+        setInterval(getNetworkStatus, 5000); // Esto puede ser útil para ver los cambios en tiempo real
     </script>
 </body>
 </html>

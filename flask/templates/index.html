@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain BATMAN Mesh</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Blockchain BATMAN Mesh Network Simulation</h1>
+
+    <section>
+        <h2>Send New Transaction</h2>
+        <form id="transactionForm">
+            <textarea id="transactionData" placeholder="Enter transaction data (e.g., sender, receiver, amount: 10). Try an odd number to see PoPV fail!"></textarea><br>
+            <button type="submit">Send Transaction</button>
+        </form>
+        <div id="transactionStatus"></div>
+    </section>
+
+    <section>
+        <h2>Network Status (BATMAN Originators - Local Node)</h2>
+        <pre id="batmanOriginatorsLocal">Loading...</pre>
+        <h2>Network Status (BATMAN Neighbors - Local Node)</h2>
+        <pre id="batmanNeighborsLocal">Loading...</pre>
+        <button onclick="getNetworkStatus()">Refresh Status</button>
+    </section>
+
+    <section>
+        <h2>Inter-Node Communication Status</h2>
+        <div id="nodeCommunicationStatus">Loading...</div>
+    </section>
+
+    <section>
+        <h2>Redis Pending Transactions</h2>
+        <div id="redisPending">Loading...</div>
+    </section>
+
+    <section>
+        <h2>Blockchain Status (from Validator)</h2>
+        <pre id="blockchainStatus">Loading...</pre>
+    </section>
+
+    <script>
+        document.getElementById('transactionForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const transactionData = document.getElementById('transactionData').value;
+            document.getElementById('transactionStatus').innerText = "Sending transaction...";
+            try {
+                const response = await fetch('/send_transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transaction_data: transactionData })
+                });
+                const result = await response.json();
+                document.getElementById('transactionStatus').innerText = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('transactionStatus').innerText = Error sending transaction: ${error};
+            }
+        });
+
+        async function getNetworkStatus() {
+            try {
+                const response = await fetch('/network_status');
+                const data = await response.json();
+
+                document.getElementById('batmanOriginatorsLocal').innerText = data.batman_originators_local || data.batman_originators_local_error || 'No data';
+                document.getElementById('batmanNeighborsLocal').innerText = data.batman_neighbors_local || data.batman_neighbors_local_error || 'No data';
+
+                let nodeCommHtml = '<ul>';
+                for (const [node, status] of Object.entries(data.node_communication_status)) {
+                    nodeCommHtml += <li><strong>${node}:</strong> ${status}</li>;
+                }
+                nodeCommHtml += '</ul>';
+                document.getElementById('nodeCommunicationStatus').innerHTML = nodeCommHtml;
+
+                document.getElementById('redisPending').innerText = data.redis_pending_transactions !== undefined ? Pending Transactions in Redis: ${data.redis_pending_transactions} : (data.redis_pending_transactions_error || 'N/A');
+
+                document.getElementById('blockchainStatus').innerText = data.blockchain_status_from_validator ? JSON.stringify(data.blockchain_status_from_validator, null, 2) : (data.blockchain_status_from_validator_error || 'N/A');
+            } catch (error) {
+                console.error("Error fetching network status:", error);
+                document.getElementById('nodeCommunicationStatus').innerText = "Error fetching status.";
+            }
+        }
+
+        getNetworkStatus();
+        setInterval(getNetworkStatus, 5000); // Actualizar cada 5 segundos
+    </script>
+</body>
+</html>
